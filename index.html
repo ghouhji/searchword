@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>text sigma search</title>
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      max-width: 800px;
+      margin: 40px auto;
+    }
+    input, textarea, button {
+      margin: 10px 0;
+      padding: 8px;
+      width: 100%;
+      font-size: 16px;
+    }
+    pre {
+      background: #f5f5f5;
+      padding: 10px;
+      white-space: pre-wrap;
+    }
+    mark {
+      background: yellow;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>Text search sigma</h1>
+  <textarea id="textInput" rows="10" placeholder="Вставьте текст сюда...">im very super duper sigma because im Python coder SUIIIII</textarea>
+  <input type="text" id="include" placeholder="Слова для включения (через запятую)" value="sigma">
+  <input type="text" id="exclude" placeholder="Слова для исключения (через запятую)">
+  <input type="text" id="regex" placeholder="Регулярные выражения (через запятую)">
+  <button onclick="runSearch()">Поиск</button>
+  <pre id="output">Результаты появятся здесь...</pre>
+
+  <script>
+    let pyodide;
+    async function main() {
+      pyodide = await loadPyodide();
+      await pyodide.runPythonAsync(`
+def search_text(text, include, exclude, regex):
+    import re
+    include_words = [w.strip() for w in include.split(',') if w.strip()]
+    exclude_words = [w.strip() for w in exclude.split(',') if w.strip()]
+    regex_patterns = [w.strip() for w in regex.split(',') if w.strip()]
+
+    results = []
+    for line in text.splitlines():
+        original = line.strip()
+        if not original:
+            continue
+        if all(word.lower() in original.lower() for word in include_words):
+            if not any(word.lower() in original.lower() for word in exclude_words):
+                if all(re.search(pat, original, re.IGNORECASE) for pat in regex_patterns):
+                    for word in include_words:
+                        pattern = re.compile(re.escape(word), re.IGNORECASE)
+                        original = pattern.sub(r"<mark>\\g<0></mark>", original)
+                    results.append("→ " + original)
+    return "\\n".join(results) if results else "Совпадений не найдено."
+`);
+    }
+    main();
+
+    async function runSearch() {
+      const text = document.getElementById("textInput").value;
+      const include = document.getElementById("include").value;
+      const exclude = document.getElementById("exclude").value;
+      const regex = document.getElementById("regex").value;
+
+      try {
+        const result = await pyodide.globals.get("search_text")(text, include, exclude, regex);
+        document.getElementById("output").innerHTML = result;
+      } catch (err) {
+        document.getElementById("output").textContent = "Ошибка: " + err;
+      }
+    }
+  </script>
+</body>
+</html>
